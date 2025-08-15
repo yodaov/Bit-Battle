@@ -18,7 +18,7 @@
 
   /* TABELA */
   .table-wrap{height:var(--table-h);padding:10px 12px;overflow:hidden}
-  #troop-table{display:grid;grid-template-columns:repeat(12,minmax(90px,1fr));gap:8px;height:100%;}
+  #troop-table{display:grid;grid-template-columns:repeat(14,minmax(90px,1fr));gap:8px;height:100%;}
   .tcell{background:#12151d;border:1px solid #1d2330;border-radius:10px;padding:8px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;user-select:none;position:relative}
   .tshape{width:44px;height:44px;margin:4px 0 6px 0;display:block}
   .tlabel{font-size:11px;line-height:1.15;text-align:center;color:var(--muted)}
@@ -51,9 +51,9 @@
 
   /* Responsivo simples */
   @media (max-width:1200px){
-    #troop-table{grid-template-columns:repeat(6,minmax(90px,1fr));}
+    #troop-table{grid-template-columns:repeat(7,minmax(90px,1fr));}
   }
-.credit{position:absolute;right:12px;bottom:12px;font-size:12px;color:#7aa2c0;opacity:.7;pointer-events:none}
+  .credit{position:absolute;right:12px;bottom:12px;font-size:12px;color:#7aa2c0;opacity:.7;pointer-events:none}
 </style>
 </head>
 <body>
@@ -103,13 +103,15 @@ const TYPES = [
   { id:'arqueiroElite',name:'Arqueiro elite',color:'#1b5e20', shape:'triangle', sizeMul:1,  hp:10, dmg:15, atkEvery:4,  rangeMul:30,  melee:false },
   { id:'guerreiro',    name:'Guerreiro',     color:'#515151', shape:'square',   sizeMul:1,  hp:22, dmg:10, atkEvery:3,  rangeMul:0,   melee:true },
   { id:'scutum',       name:'Scutum',        color:'#ff3b30', shape:'circle',   sizeMul:1,  hp:35, dmg:2,  atkEvery:3,  rangeMul:0,   melee:true },
-  { id:'lanceiro',     name:'Lanceiro',      color:'#ff922b', shape:'square',   sizeMul:1,  hp:5, dmg:10,  atkEvery:4,  rangeMul:5,   melee:false },
+  { id:'lanceiro',     name:'Lanceiro',      color:'#ff922b', shape:'square',   sizeMul:1,  hp:5, dmg:20,  atkEvery:4,  rangeMul:5,   melee:false },
   { id:'elefante',     name:'Elefante',      color:'#8C8C8C', shape:'circle',   sizeMul:2,  hp:80, dmg:40, atkEvery:4,  rangeMul:0,   melee:true },
   { id:'mosqueteiro',  name:'Mosqueteiro',   color:'#1D44B8', shape:'circle',   sizeMul:1,  hp:10, dmg:50, atkEvery:20, rangeMul:15,  melee:false },
-  { id:'general',      name:'General',       color:'#FFD700', shape:'pentagon', sizeMul:1,  hp:40, dmg:20, atkEvery:2,  rangeMul:0,   melee:true },
+  { id:'general',      name:'General',       color:'#FFD700', shape:'pentagon', sizeMul:1,  hp:40, dmg:20, atkEvery:3,  rangeMul:0,   melee:true },
   { id:'canhoneiro',   name:'Canhoneiro',    color:'#000000', shape:'square',   sizeMul:1,  hp:20, dmg:100,atkEvery:40, rangeMul:35,  melee:false },
   { id:'armaEspada',   name:'Arma-espada',   color:'#7ec8e3', shape:'triangle', sizeMul:1,  hp:10, dmg:50, atkEvery:20, rangeMul:15,  melee:false, phase:'mosqueteiro' },
   { id:'viking',       name:'Viking',        color:'#7a5230', shape:'square',   sizeMul:1,  hp:10, dmg:15, atkEvery:2,  rangeMul:0,   melee:true },
+  { id:'cavalariaLeve',  name:'Cavalaria leve',  color:'#8B5A2B', shape:'triangle', sizeMul:1,  hp:20, dmg:10, atkEvery:3,  rangeMul:0, melee:true, speedMul:2,   isCavalry:true },
+  { id:'cavalariaPesada', name:'Cavalaria pesada', color:'#707070', shape:'triangle', sizeMul:1,  hp:25, dmg:15, atkEvery:4,  rangeMul:0, melee:true, speedMul:1.5, isCavalry:true }
 ];
 
 // Soldado stats para arma-espada fase 2
@@ -240,10 +242,11 @@ function onDragEnd(e){
 function spawnUnit(team, x, y, t){
   const rad = BASE_SIZE * t.sizeMul;
   const u = {
-    id: nextUnitId++, team, x, y, vx:0, vy:0, 
+    id: nextUnitId++, team, x, y, vx:0, vy:0,
     typeRef: t, rad, color: t.color, shape: t.shape,
     hp: t.hp, maxHp:t.hp, dmg: t.dmg, atkEvery: t.atkEvery, range: t.rangeMul*BASE_SIZE, melee: t.melee,
-    cooldown: 0, dead:false, fade:0, targetId:null, lastDist:null, noProgressT:0, phase:t.phase||null
+    cooldown: 0, dead:false, fade:0, targetId:null, lastDist:null, noProgressT:0, phase:t.phase||null,
+    speedMul: t.speedMul || 1, isCavalry: !!t.isCavalry, accelElapsed: 0
   };
   // Pequena nudged para evitar sobreposição forte no spawn
   const jitter = (Math.random()-.5)*4;
@@ -334,6 +337,10 @@ function physics(dt){
       // Checar alcance
       const dx = target.x - u.x; const dy = target.y - u.y; const dist = Math.hypot(dx,dy);
       const inRange = u.melee ? (dist <= u.rad + target.rad + 1.5) : (dist <= u.range);
+      // Cavalaria: acumula aceleração por até 3s somente enquanto se move em ofensiva e fora do alcance
+      if(u.isCavalry){
+        if(isOffensive && !inRange){ u.accelElapsed = Math.min(3, (u.accelElapsed||0) + dt); }
+      }
       if(!inRange){
         // vetor em direção ao alvo
         if(dist>0.0001){ desiredX += dx/dist; desiredY += dy/dist; }
@@ -367,7 +374,9 @@ function physics(dt){
 
     // Normalizar
     const mag = Math.hypot(vx,vy) + JITTER;
-    const maxV = SPEED * (u.rad/BASE_SIZE <= 1 ? 1 : 0.7); // elefante mais lento
+    const baseMul = (u.rad/BASE_SIZE <= 1 ? 1 : 0.7);
+    const accelFactor = 1 + ((u.speedMul||1) - 1) * Math.min(1, (u.accelElapsed||0)/3);
+    const maxV = SPEED * baseMul * accelFactor; // elefante mais lento
     let tx = vx/mag * maxV; let ty = vy/mag * maxV;
 
     // amortecimento suave para movimento natural
@@ -426,8 +435,16 @@ function combat(dt){
         // reinicia cooldown para o ciclo de soldado (evita ficar preso com 20s do mosqueteiro)
         u.cooldown = SOLDIER_STATS.atkEvery;
       } else {
-        // ataque normal
-        target.hp -= u.dmg;
+        // ataque normal (inclui cavalaria com multiplicador ao terminar aceleração)
+        let _d = u.dmg;
+        if(u.isCavalry){
+          // multiplicador baseado no tempo acelerando antes do contato (1x..3x)
+          const mult = Math.max(1, Math.min(3, Math.ceil(u.accelElapsed||0)));
+          _d *= mult;
+          // após golpear, zera aceleração acumulada
+          u.accelElapsed = 0;
+        }
+        target.hp -= _d;
         u.cooldown = u.atkEvery;
         if(!u.melee){
           state.projectiles.push({x1:u.x, y1:u.y, x2:target.x, y2:target.y, t:0.18, color:'#a7d3ff'});
@@ -494,8 +511,55 @@ function render(){
   }
 }
 
+// ======= TESTES (não interferem na jogabilidade) =======
+function runUnitTests(){
+  const save = { started: state.started, units: state.units, projectiles: state.projectiles };
+  state.started = true; state.units = []; state.projectiles = [];
+  console.group("Tests");
+  try{
+    // Teste 1: spawnUnit cria unidade correta
+    const before = state.units.length;
+    spawnUnit('left', 100, 100, TYPES.find(t=>t.id==='soldado'));
+    console.assert(state.units.length === before+1, 'spawnUnit deve adicionar 1 unidade');
+    // cleanup parcial
+    state.units.pop();
+
+    // Teste 2: Arma-espada converte para soldado após primeiro ataque
+    spawnUnit('left', 120, 120, TYPES.find(t=>t.id==='armaEspada'));
+    spawnUnit('right', 240, 120, TYPES.find(t=>t.id==='soldado'));
+    thinkTargets(0.016);
+    // Forçar cooldown para atacar no próximo combat()
+    for(const u of state.units){ u.cooldown = 0; }
+    // Garantir que está em alcance de mosqueteiro (15*BASE_SIZE = 240)
+    combat(0.016);
+    const arma = state.units.find(u=>u.typeRef.id==='armaEspada');
+    console.assert(arma && arma.melee && arma.phase==='soldado' && arma.dmg===SOLDIER_STATS.dmg, 'Arma-espada deve virar soldado após primeiro tiro');
+    state.units.length = 0;
+
+    // Teste 3: Cavalaria leve acumula aceleração e aplica multiplicador 2× no primeiro golpe após ~2s
+    spawnUnit('left', 100, 100, TYPES.find(t=>t.id==='cavalariaLeve'));
+    spawnUnit('right', 400, 100, TYPES.find(t=>t.id==='scutum'));
+    thinkTargets(0.016);
+    // Simular ~2.1s de movimento para acumular aceleração
+    for(let i=0;i<140;i++){ physics(0.015); }
+    // Colocar em alcance corpo-a-corpo forçando aproximação imediata
+    const cav = state.units[0]; const target = state.units[1];
+    cav.x = target.x - (cav.rad + target.rad) + 1; cav.y = target.y; cav.cooldown = 0;
+    thinkTargets(0.016); combat(0.016);
+    const expected = 35 - (10*2); // Scutum 35 HP, cav leve 10 dmg * 2x
+    console.assert(target.hp === expected, 'Cavalaria leve deve causar 2x dano após ~2s de aceleração');
+    state.units.length = 0;
+  }catch(err){
+    console.error('Erro nos testes:', err);
+  } finally {
+    console.groupEnd();
+    // restaurar estado
+    state.started = save.started; state.units = save.units; state.projectiles = save.projectiles;
+  }
+}
+
 // ======= INICIALIZAÇÃO =======
-function init(){ buildTable(); resize(); requestAnimationFrame(loop); }
+function init(){ buildTable(); resize(); requestAnimationFrame(loop); runUnitTests(); }
 init();
 </script>
 </body>
