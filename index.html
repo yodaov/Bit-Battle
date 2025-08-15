@@ -353,6 +353,13 @@ function physics(dt){
       const dx = target.x - u.x; const dy = target.y - u.y; const dist = Math.hypot(dx,dy);
       const inRange = u.melee ? (dist <= u.rad + target.rad + 1.5) : (dist <= u.range);
 
+      // Cavalaria: acumula aceleração por até 3s enquanto avança e está fora do alcance
+      if(u.isCavalry){
+        if(isOffensive && !inRange){
+          u.accelElapsed = Math.min(3, (u.accelElapsed||0) + dt);
+        }
+      }
+
       // Lógica de mira (apenas para unidades com delay de mira)
       const aimDelay = getAimDelay(u);
       if(aimDelay>0){
@@ -760,6 +767,18 @@ function runUnitTests(){
     E.cooldown = 0; physics(0.016); combat(0.016);
     const twoDown = state.units.filter(u=>u.typeRef.id==='scutum' && u.dead).length;
     console.assert(twoDown >= 2, 'Elefante deve atingir (e provavelmente eliminar) dois alvos no melee');
+    state.units.length = 0;
+
+
+    // Teste 15: Cavalaria pesada acumula ~3s e aplica 3x dano no primeiro golpe
+    spawnUnit('left', 100, 100, TYPES.find(t=>t.id==='cavalariaPesada'));
+    spawnUnit('right', 400, 100, TYPES.find(t=>t.id==='scutum'));
+    thinkTargets(0.016);
+    for(let i=0;i<210;i++){ physics(0.015); } // ~3.15s de avanço
+    let heavy = state.units[0]; let tgtH = state.units[1];
+    heavy.x = tgtH.x - (heavy.rad + tgtH.rad) + 1; heavy.y = tgtH.y; heavy.cooldown = 0;
+    thinkTargets(0.016); combat(0.016);
+    console.assert(tgtH.hp === 35 - (15*3), 'Cavalaria pesada deve causar 3x dano após ~3s de aceleração');
     state.units.length = 0;
 
   }catch(err){
