@@ -100,17 +100,17 @@ const JITTER = 0.0005; // ruído mínimo p/ evitar pendular
 const TYPES = [
   { id:'soldado',      name:'Soldado',       color:'#ff3b30', shape:'square',   sizeMul:1,  hp:10, dmg:5,  atkEvery:2,  rangeMul:0,   melee:true },
   { id:'arqueiro',     name:'Arqueiro',      color:'#ffd43b', shape:'triangle', sizeMul:1,  hp:10, dmg:10, atkEvery:6,  rangeMul:20,  melee:false },
-  { id:'arqueiroElite',name:'Arqueiro elite',color:'#1b5e20', shape:'triangle', sizeMul:1,  hp:10, dmg:15, atkEvery:4,  rangeMul:30,  melee:false },
+  { id:'arqueirodeElite',name:'Arqueiro de elite',color:'#1b5e20', shape:'triangle', sizeMul:1,  hp:10, dmg:15, atkEvery:4,  rangeMul:30,  melee:false },
   { id:'guerreiro',    name:'Guerreiro',     color:'#515151', shape:'square',   sizeMul:1,  hp:22, dmg:10, atkEvery:3,  rangeMul:0,   melee:true },
-  { id:'scutum',       name:'Scutum',        color:'#ff3b30', shape:'circle',   sizeMul:1,  hp:35, dmg:2,  atkEvery:3,  rangeMul:0,   melee:true },
+  { id:'scutum',       name:'Scutum',        color:'#ff3b30', shape:'circle',   sizeMul:1,  hp:35, dmg:3,  atkEvery:3,  rangeMul:0,   melee:true },
   { id:'lanceiro',     name:'Lanceiro',      color:'#ff922b', shape:'square',   sizeMul:1,  hp:5, dmg:20,  atkEvery:4,  rangeMul:5,   melee:false },
   { id:'elefante',     name:'Elefante',      color:'#8C8C8C', shape:'circle',   sizeMul:2,  hp:80, dmg:40, atkEvery:4,  rangeMul:0,   melee:true },
   { id:'mosqueteiro',  name:'Mosqueteiro',   color:'#1D44B8', shape:'circle',   sizeMul:1,  hp:10, dmg:50, atkEvery:20, rangeMul:15,  melee:false },
-  { id:'general',      name:'General',       color:'#FFD700', shape:'pentagon', sizeMul:1,  hp:40, dmg:20, atkEvery:3,  rangeMul:0,   melee:true },
+  { id:'general',      name:'General',       color:'#FFD700', shape:'pentagon', sizeMul:1,  hp:40, dmg:20, atkEvery:1.5,  rangeMul:0,   melee:true },
   { id:'canhoneiro',   name:'Canhoneiro',    color:'#000000', shape:'square',   sizeMul:1,  hp:20, dmg:100,atkEvery:40, rangeMul:35,  melee:false },
   { id:'armaEspada',   name:'Arma-espada',   color:'#7ec8e3', shape:'triangle', sizeMul:1,  hp:10, dmg:50, atkEvery:20, rangeMul:15,  melee:false, phase:'mosqueteiro' },
-  { id:'viking',       name:'Viking',        color:'#7a5230', shape:'square',   sizeMul:1,  hp:10, dmg:15, atkEvery:2,  rangeMul:0,   melee:true },
-  { id:'cavalariaLeve',  name:'Cavalaria leve',  color:'#8B5A2B', shape:'triangle', sizeMul:1,  hp:20, dmg:10, atkEvery:3,  rangeMul:0, melee:true, speedMul:2,   isCavalry:true },
+  { id:'viking',       name:'Viking',        color:'#7a5230', shape:'square',   sizeMul:1,  hp:5, dmg:15, atkEvery:1,  rangeMul:0,   melee:true },
+  { id:'cavalariaLeve',  name:'Cavalaria leve',  color:'#8B5A2B', shape:'triangle', sizeMul:1,  hp:20, dmg:10, atkEvery:3,  rangeMul:0, melee:true, speedMul:2.4,   isCavalry:true },
   { id:'cavalariaPesada', name:'Cavalaria pesada', color:'#707070', shape:'triangle', sizeMul:1,  hp:25, dmg:15, atkEvery:4,  rangeMul:0, melee:true, speedMul:1.5, isCavalry:true }
 ];
 
