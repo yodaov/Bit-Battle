@@ -100,17 +100,17 @@ const JITTER = 0.0005; // ruído mínimo p/ evitar pendular
 const TYPES = [
   { id:'soldado',      name:'Soldado',       color:'#ff3b30', shape:'square',   sizeMul:1,  hp:10, dmg:5,  atkEvery:2,  rangeMul:0,   melee:true },
   { id:'arqueiro',     name:'Arqueiro',      color:'#ffd43b', shape:'triangle', sizeMul:1,  hp:10, dmg:10, atkEvery:6,  rangeMul:20,  melee:false },
-  { id:'arqueirodeElite',name:'Arqueiro de elite',color:'#1b5e20', shape:'triangle', sizeMul:1,  hp:10, dmg:15, atkEvery:4,  rangeMul:30,  melee:false },
+  { id:'arqueiroElite',name:'Arqueiro elite',color:'#1b5e20', shape:'triangle', sizeMul:1,  hp:10, dmg:15, atkEvery:4,  rangeMul:30,  melee:false },
   { id:'guerreiro',    name:'Guerreiro',     color:'#515151', shape:'square',   sizeMul:1,  hp:22, dmg:10, atkEvery:3,  rangeMul:0,   melee:true },
-  { id:'scutum',       name:'Scutum',        color:'#ff3b30', shape:'circle',   sizeMul:1,  hp:35, dmg:3,  atkEvery:3,  rangeMul:0,   melee:true },
+  { id:'scutum',       name:'Scutum',        color:'#ff3b30', shape:'circle',   sizeMul:1,  hp:35, dmg:2,  atkEvery:3,  rangeMul:0,   melee:true },
   { id:'lanceiro',     name:'Lanceiro',      color:'#ff922b', shape:'square',   sizeMul:1,  hp:5, dmg:20,  atkEvery:4,  rangeMul:5,   melee:false },
-  { id:'elefante',     name:'Elefante',      color:'#8C8C8C', shape:'circle',   sizeMul:2,  hp:80, dmg:40, atkEvery:4,  rangeMul:0,   melee:true },
-  { id:'mosqueteiro',  name:'Mosqueteiro',   color:'#1D44B8', shape:'circle',   sizeMul:1,  hp:10, dmg:50, atkEvery:20, rangeMul:15,  melee:false },
+  { id:'elefante',     name:'Elefante',      color:'#8C8C8C', shape:'circle',   sizeMul:2,  hp:250, dmg:40, atkEvery:3.5,  rangeMul:0,   melee:true },
+  { id:'mosqueteiro',  name:'Mosqueteiro',   color:'#1D44B8', shape:'circle',   sizeMul:1,  hp:10, dmg:60, atkEvery:15, rangeMul:25,  melee:false },
   { id:'general',      name:'General',       color:'#FFD700', shape:'pentagon', sizeMul:1,  hp:40, dmg:20, atkEvery:1.5,  rangeMul:0,   melee:true },
-  { id:'canhoneiro',   name:'Canhoneiro',    color:'#000000', shape:'square',   sizeMul:1,  hp:20, dmg:100,atkEvery:40, rangeMul:35,  melee:false },
-  { id:'armaEspada',   name:'Arma-espada',   color:'#7ec8e3', shape:'triangle', sizeMul:1,  hp:10, dmg:50, atkEvery:20, rangeMul:15,  melee:false, phase:'mosqueteiro' },
-  { id:'viking',       name:'Viking',        color:'#7a5230', shape:'square',   sizeMul:1,  hp:5, dmg:15, atkEvery:1,  rangeMul:0,   melee:true },
-  { id:'cavalariaLeve',  name:'Cavalaria leve',  color:'#8B5A2B', shape:'triangle', sizeMul:1,  hp:20, dmg:10, atkEvery:3,  rangeMul:0, melee:true, speedMul:2.4,   isCavalry:true },
+  { id:'canhoneiro',   name:'Canhoneiro',    color:'#000000', shape:'square',   sizeMul:1,  hp:20, dmg:300,atkEvery:25, rangeMul:35,  melee:false, speedMul:0.5 },
+  { id:'armaEspada',   name:'Arma-espada',   color:'#7ec8e3', shape:'triangle', sizeMul:1,  hp:10, dmg:60, atkEvery:20, rangeMul:20,  melee:false, phase:'mosqueteiro' },
+  { id:'viking',       name:'Viking',        color:'#7a5230', shape:'square',   sizeMul:1,  hp:5,  dmg:15, atkEvery:1,  rangeMul:0,   melee:true },
+  { id:'cavalariaLeve',  name:'Cavalaria leve',  color:'#8B5A2B', shape:'triangle', sizeMul:1,  hp:20, dmg:10, atkEvery:3,  rangeMul:0, melee:true, speedMul:2,   isCavalry:true },
   { id:'cavalariaPesada', name:'Cavalaria pesada', color:'#707070', shape:'triangle', sizeMul:1,  hp:25, dmg:15, atkEvery:4,  rangeMul:0, melee:true, speedMul:1.5, isCavalry:true }
 ];
 
@@ -246,7 +246,9 @@ function spawnUnit(team, x, y, t){
     typeRef: t, rad, color: t.color, shape: t.shape,
     hp: t.hp, maxHp:t.hp, dmg: t.dmg, atkEvery: t.atkEvery, range: t.rangeMul*BASE_SIZE, melee: t.melee,
     cooldown: 0, dead:false, fade:0, targetId:null, lastDist:null, noProgressT:0, phase:t.phase||null,
-    speedMul: t.speedMul || 1, isCavalry: !!t.isCavalry, accelElapsed: 0
+    speedMul: t.speedMul || 1, isCavalry: !!t.isCavalry, accelElapsed: 0,
+    // mira
+    aiming:false, aimTimer:0, prevInRange:false, wasMoving:false
   };
   // Pequena nudged para evitar sobreposição forte no spawn
   const jitter = (Math.random()-.5)*4;
@@ -284,6 +286,17 @@ function resetBattle(){
   state.leftOffensive=true; state.rightOffensive=true;
   applyModeBtn(leftModeBtn,true,'Esquerda');
   applyModeBtn(rightModeBtn,true,'Direita');
+}
+
+// ======= Auxílio: tempo de mira por tipo =======
+function getAimDelay(u){
+  const id = u.typeRef.id;
+  if(id==='lanceiro') return 0; // não precisa mirar
+  if(id==='mosqueteiro' || id==='canhoneiro') return 1.5;
+  if(id==='armaEspada' && !u.melee) return 1.5; // fase mosqueteiro
+  if(id==='arqueiro') return 0.8;
+  if(id==='arqueiroElite') return 0.4; // versão principal
+  return 0;
 }
 
 // ======= GAME LOOP =======
@@ -329,6 +342,8 @@ function physics(dt){
   // 1) Integração de velocidade
   for(const u of state.units){ if(u.dead) continue;
     const target = state.units.find(v=>v.id===u.targetId);
+    // capturar movimento do frame anterior para decidir mira
+    u.wasMoving = Math.hypot(u.vx,u.vy) > 0.5;
 
     const isOffensive = (u.team==='left') ? state.leftOffensive : state.rightOffensive;
 
@@ -337,11 +352,22 @@ function physics(dt){
       // Checar alcance
       const dx = target.x - u.x; const dy = target.y - u.y; const dist = Math.hypot(dx,dy);
       const inRange = u.melee ? (dist <= u.rad + target.rad + 1.5) : (dist <= u.range);
-      // Cavalaria: acumula aceleração por até 3s somente enquanto se move em ofensiva e fora do alcance
-      if(u.isCavalry){
-        if(isOffensive && !inRange){ u.accelElapsed = Math.min(3, (u.accelElapsed||0) + dt); }
+
+      // Lógica de mira (apenas para unidades com delay de mira)
+      const aimDelay = getAimDelay(u);
+      if(aimDelay>0){
+        const moving = u.wasMoving; // usar velocidade do frame anterior
+        if(inRange){
+          if(!u.prevInRange && moving && u.cooldown<=0 && !u.aiming){
+            u.aiming = true; u.aimTimer = aimDelay; u.vx = 0; u.vy = 0; // parar imediatamente
+          }
+        } else {
+          // saiu do alcance: cancela mira
+          u.aiming = false; u.aimTimer = 0;
+        }
       }
-      if(!inRange){
+
+      if(!inRange && !u.aiming){
         // vetor em direção ao alvo
         if(dist>0.0001){ desiredX += dx/dist; desiredY += dy/dist; }
       }
@@ -349,38 +375,47 @@ function physics(dt){
       if(u.lastDist==null) u.lastDist = dist;
       if(dist < u.lastDist - 0.5) { u.noProgressT=0; } else { u.noProgressT += dt; }
       u.lastDist = dist;
-      if(u.noProgressT > 1.2 && isOffensive){ // tentar escapar
+      if(u.noProgressT > 1.2 && isOffensive && !u.aiming){ // tentar escapar
         // adicionar componente lateral
         const perpX = -dy/(dist||1), perpY = dx/(dist||1);
         const side = (Math.random()<0.5? -1:1);
         desiredX += perpX*0.8*side; desiredY += perpY*0.8*side; 
         u.noProgressT = 0.6; // reduz e tenta de novo
       }
+
+      // marcar estado de alcance p/ próximo frame
+      u.prevInRange = inRange;
     }
 
     // separação para evitar engarrafamentos
-    let sepX=0, sepY=0; let n=0;
+    let sepX=0, sepY=0; let wn=0;
     for(const v of state.units){ if(v===u || v.dead) continue; 
       const dx=u.x-v.x, dy=u.y-v.y; const d=Math.hypot(dx,dy); const minD=u.rad+v.rad+2;
       if(d<minD && d>0.0001){
-        const push=(minD-d)/minD; sepX += (dx/d)*push; sepY += (dy/d)*push; n++;
+        const isEle = u.typeRef.id==='elefante';
+        const otherEle = v.typeRef.id==='elefante';
+        const push=(minD-d)/minD;
+        const w = isEle ? 0 : (otherEle ? 1.8 : 1);
+        sepX += (dx/d)*push*w; sepY += (dy/d)*push*w; wn += w;
       }
     }
-    if(n>0){ sepX/=n; sepY/=n; }
+    if(wn>0){ sepX/=wn; sepY/=wn; }
 
-    // Combinar
-    let vx = desiredX*1.0 + sepX*1.6; 
-    let vy = desiredY*1.0 + sepY*1.6;
+    // Combinar (se está mirando, parar o movimento voluntário; manter separação)
+    let vx = (u.aiming? 0 : desiredX*1.0) + sepX*1.6; 
+    let vy = (u.aiming? 0 : desiredY*1.0) + sepY*1.6;
 
     // Normalizar
     const mag = Math.hypot(vx,vy) + JITTER;
     const baseMul = (u.rad/BASE_SIZE <= 1 ? 1 : 0.7);
-    const accelFactor = 1 + ((u.speedMul||1) - 1) * Math.min(1, (u.accelElapsed||0)/3);
+    const accelFactor = u.isCavalry
+      ? (1 + ((u.speedMul||1) - 1) * Math.min(1, (u.accelElapsed||0)/3))
+      : (u.speedMul || 1);
     const maxV = SPEED * baseMul * accelFactor; // elefante mais lento
     let tx = vx/mag * maxV; let ty = vy/mag * maxV;
 
-    // amortecimento suave para movimento natural
-    const smooth = 0.14;
+    // amortecimento suave para movimento natural; freia mais quando mirando
+    const smooth = u.aiming ? 0.35 : 0.14;
     if(!state.started || !( (u.team==='left'?state.leftOffensive:state.rightOffensive) )){ tx=0; ty=0; }
     u.vx = u.vx*(1-smooth) + tx*smooth;
     u.vy = u.vy*(1-smooth) + ty*smooth;
@@ -399,8 +434,13 @@ function physics(dt){
       if(d<minD && d>0){
         const overlap = (minD-d)/2;
         const nx = dx/d, ny = dy/d;
-        a.x -= nx*overlap; a.y -= ny*overlap;
-        b.x += nx*overlap; b.y += ny*overlap;
+        let moveA = 0.5, moveB = 0.5;
+        const aEle = a.typeRef.id==='elefante';
+        const bEle = b.typeRef.id==='elefante';
+        if(aEle && !bEle){ moveA = 0; moveB = 1; }
+        else if(bEle && !aEle){ moveA = 1; moveB = 0; }
+        a.x -= nx*overlap*2*moveA; a.y -= ny*overlap*2*moveA;
+        b.x += nx*overlap*2*moveB; b.y += ny*overlap*2*moveB;
       }
     }
   }
@@ -417,22 +457,42 @@ function combat(dt){
   for(const u of state.units){ if(u.dead) continue;
     if(u.cooldown>0) u.cooldown -= dt;
     const target = state.units.find(v=>v.id===u.targetId);
+    // capturar movimento do frame anterior para decidir mira (fallback)
+    u.wasMoving = Math.hypot(u.vx,u.vy) > 0.5;
     if(!target || target.dead) continue;
     const dx = target.x - u.x; const dy = target.y - u.y; const dist = Math.hypot(dx,dy);
     const inRange = u.melee ? (dist <= u.rad + target.rad + 1.5) : (dist <= u.range);
+
+    // Se está mirando, conta o tempo e ainda não ataca
+    const aimDelay = getAimDelay(u);
+    const enteringNow = inRange && !u.prevInRange;
+    if(aimDelay>0){
+      if(!inRange){ u.aiming=false; u.aimTimer=0; }
+      // fallback: se entrou no alcance neste frame e estava andando, inicia mira aqui também
+      if(!u.aiming && enteringNow && u.wasMoving && u.cooldown<=0){
+        u.aiming = true; u.aimTimer = aimDelay;
+      }
+      if(u.aiming){ u.aimTimer -= dt; if(u.aimTimer>0) continue; else u.aiming=false; }
+    }
+
     if(inRange && u.cooldown<=0){
-      // Arma-espada: primeiro ataque como mosqueteiro, depois vira soldado (melee)
-      if(u.typeRef.id==='armaEspada' && u.phase!=='soldado' && !u.melee){
-        // primeiro ataque à distância
+      if(u.typeRef.id==='elefante'){
+        // Elefante: golpear até 2 inimigos no alcance melee
+        const enemies = state.units.filter(v=>!v.dead && v.team!==u.team);
+        const within = enemies.filter(v=> Math.hypot(v.x-u.x, v.y-u.y) <= u.rad + v.rad + 1.5)
+                               .sort((a,b)=> Math.hypot(a.x-u.x, a.y-u.y) - Math.hypot(b.x-u.x, b.y-u.y));
+        const toHit = within.slice(0,2);
+        for(const t of toHit){ t.hp -= u.dmg; if(t.hp<=0 && !t.dead){ t.dead=true; t.fade=0.8; t.vx=0; t.vy=0; } }
+        u.cooldown = u.atkEvery;
+      } else if(u.typeRef.id==='armaEspada' && u.phase!=='soldado' && !u.melee){
+        // Arma-espada: primeiro ataque à distância, depois vira soldado (melee)
         target.hp -= u.dmg;
         state.projectiles.push({x1:u.x, y1:u.y, x2:target.x, y2:target.y, t:0.18, color:'#a7d3ff'});
-        // troca de fase para soldado (melee)
         u.dmg = SOLDIER_STATS.dmg;
         u.atkEvery = SOLDIER_STATS.atkEvery;
         u.range = 0;
         u.melee = true;
         u.phase = 'soldado';
-        // reinicia cooldown para o ciclo de soldado (evita ficar preso com 20s do mosqueteiro)
         u.cooldown = SOLDIER_STATS.atkEvery;
       } else {
         // ataque normal (inclui cavalaria com multiplicador ao terminar aceleração)
@@ -513,7 +573,7 @@ function render(){
 
 // ======= TESTES (não interferem na jogabilidade) =======
 function runUnitTests(){
-  const save = { started: state.started, units: state.units, projectiles: state.projectiles };
+  const save = { started: state.started, units: state.units, projectiles: state.projectiles, leftOffensive: state.leftOffensive, rightOffensive: state.rightOffensive };
   state.started = true; state.units = []; state.projectiles = [];
   console.group("Tests");
   try{
@@ -524,13 +584,11 @@ function runUnitTests(){
     // cleanup parcial
     state.units.pop();
 
-    // Teste 2: Arma-espada converte para soldado após primeiro ataque
+    // Teste 2: Arma-espada converte para soldado após primeiro ataque (sem mira, pois está parado)
     spawnUnit('left', 120, 120, TYPES.find(t=>t.id==='armaEspada'));
     spawnUnit('right', 240, 120, TYPES.find(t=>t.id==='soldado'));
     thinkTargets(0.016);
-    // Forçar cooldown para atacar no próximo combat()
-    for(const u of state.units){ u.cooldown = 0; }
-    // Garantir que está em alcance de mosqueteiro (15*BASE_SIZE = 240)
+    for(const u of state.units){ u.cooldown = 0; u.vx=0; u.vy=0; } // parado: não deve aplicar delay de mira
     combat(0.016);
     const arma = state.units.find(u=>u.typeRef.id==='armaEspada');
     console.assert(arma && arma.melee && arma.phase==='soldado' && arma.dmg===SOLDIER_STATS.dmg, 'Arma-espada deve virar soldado após primeiro tiro');
@@ -549,12 +607,168 @@ function runUnitTests(){
     const expected = 35 - (10*2); // Scutum 35 HP, cav leve 10 dmg * 2x
     console.assert(target.hp === expected, 'Cavalaria leve deve causar 2x dano após ~2s de aceleração');
     state.units.length = 0;
+
+    // Teste 4: Mosqueteiro em movimento deve esperar ~1.5s ao entrar no alcance
+    state.leftOffensive = true; state.rightOffensive = false; // alvo parado
+    spawnUnit('left', 100, 120, TYPES.find(t=>t.id==='mosqueteiro'));
+    spawnUnit('right', 420, 120, TYPES.find(t=>t.id==='scutum'));
+    thinkTargets(0.016);
+    let entered=false; let shooter = state.units[0]; let tgt = state.units[1];
+    for(let i=0;i<200 && !entered;i++){ physics(0.05); const d=Math.hypot(tgt.x-shooter.x,tgt.y-shooter.y); if(d <= shooter.range){ entered=true; shooter.cooldown=0; break; } }
+    const hp0 = tgt.hp;
+    // antes de 1.5s não deve causar dano
+    for(let t=0;t<1.4;t+=0.1){ combat(0.1); }
+    console.assert(tgt.hp === hp0, 'Mosqueteiro não deve atirar antes de ~1.5s de mira');
+    combat(0.25);
+    const mosqD = TYPES.find(t=>t.id==='mosqueteiro').dmg;
+    console.assert(tgt.hp === hp0-mosqD, 'Mosqueteiro deve causar dano após ~1.5s de mira');
+    state.units.length = 0;
+
+    // Teste 5: Arqueiro em movimento espera ~0.8s
+    state.leftOffensive = true; state.rightOffensive = false;
+    spawnUnit('left', 100, 120, TYPES.find(t=>t.id==='arqueiro'));
+    spawnUnit('right', 400, 120, TYPES.find(t=>t.id==='scutum'));
+    thinkTargets(0.016);
+    shooter = state.units[0]; tgt = state.units[1]; entered=false;
+    for(let i=0;i<200 && !entered;i++){ physics(0.05); const d=Math.hypot(tgt.x-shooter.x,tgt.y-shooter.y); if(d <= shooter.range){ entered=true; shooter.cooldown=0; break; } }
+    const hpA0 = tgt.hp;
+    for(let t=0;t<0.7;t+=0.1){ combat(0.1); }
+    console.assert(tgt.hp === hpA0, 'Arqueiro não deve atirar antes de ~0.8s');
+    combat(0.2);
+    console.assert(tgt.hp === hpA0-10, 'Arqueiro deve atirar após ~0.8s');
+    state.units.length = 0;
+
+    // Teste 6: Arqueiro elite em movimento espera ~0.4s
+    state.leftOffensive = true; state.rightOffensive = false;
+    spawnUnit('left', 100, 120, TYPES.find(t=>t.id==='arqueiroElite'));
+    spawnUnit('right', 400, 120, TYPES.find(t=>t.id==='scutum'));
+    thinkTargets(0.016);
+    shooter = state.units[0]; tgt = state.units[1]; entered=false;
+    for(let i=0;i<200 && !entered;i++){ physics(0.05); const d=Math.hypot(tgt.x-shooter.x,tgt.y-shooter.y); if(d <= shooter.range){ entered=true; shooter.cooldown=0; break; } }
+    const hpE0 = tgt.hp;
+    for(let t=0;t<0.3;t+=0.1){ combat(0.1); }
+    console.assert(tgt.hp === hpE0, 'Arqueiro elite não deve atirar antes de ~0.4s');
+    combat(0.2);
+    console.assert(tgt.hp === hpE0-15, 'Arqueiro elite deve atirar após ~0.4s');
+    state.units.length = 0;
+
+    // Teste 7: Canhoneiro em movimento espera ~1.5s
+    state.leftOffensive = true; state.rightOffensive = false;
+    spawnUnit('left', 100, 120, TYPES.find(t=>t.id==='canhoneiro'));
+    spawnUnit('right', 420, 120, TYPES.find(t=>t.id==='scutum'));
+    thinkTargets(0.016);
+    shooter = state.units[0]; tgt = state.units[1]; entered=false;
+    for(let i=0;i<240 && !entered;i++){ physics(0.05); const d=Math.hypot(tgt.x-shooter.x,tgt.y-shooter.y); if(d <= shooter.range){ entered=true; shooter.cooldown=0; break; } }
+    const hpC0 = tgt.hp;
+    for(let t=0;t<1.4;t+=0.1){ combat(0.1); }
+    console.assert(tgt.hp === hpC0, 'Canhoneiro não deve atirar antes de ~1.5s');
+    combat(0.25);
+    const canD = TYPES.find(t=>t.id==='canhoneiro').dmg;
+    console.assert(tgt.hp === hpC0-canD, 'Canhoneiro deve atirar após ~1.5s');
+    state.units.length = 0;
+
+    // Teste 8: Mosqueteiro parado não espera (sem mira)
+    spawnUnit('left', 100, 120, TYPES.find(t=>t.id==='mosqueteiro'));
+    spawnUnit('right', 200, 120, TYPES.find(t=>t.id==='scutum'));
+    thinkTargets(0.016);
+    let msq = state.units[0]; let tgt2 = state.units[1];
+    msq.vx = 0; msq.vy = 0; msq.cooldown = 0; // parado
+    const hpM0 = tgt2.hp; combat(0.016);
+    const mosqD2 = TYPES.find(t=>t.id==='mosqueteiro').dmg;
+    console.assert(tgt2.hp === hpM0-mosqD2, 'Mosqueteiro parado deve atirar imediatamente sem delay');
+    state.units.length = 0;
+
+    // Teste 9: Lanceiro em movimento não tem delay de mira (instantâneo)
+    state.leftOffensive = true; state.rightOffensive = false;
+    spawnUnit('left', 100, 120, TYPES.find(t=>t.id==='lanceiro'));
+    spawnUnit('right', 220, 120, TYPES.find(t=>t.id==='scutum'));
+    thinkTargets(0.016);
+    let lan = state.units[0]; let tgt3 = state.units[1];
+    // aproximar até entrar no alcance (80px)
+    let gotIn=false;
+    for(let i=0;i<100 && !gotIn;i++){ physics(0.05); const d=Math.hypot(tgt3.x-lan.x,tgt3.y-lan.y); if(d <= lan.range){ gotIn=true; lan.cooldown=0; break; } }
+    const hpL0 = tgt3.hp; combat(0.016);
+    console.assert(tgt3.hp === hpL0-20, 'Lanceiro não deve esperar mira; ataque imediato');
+    state.units.length = 0;
+
+    // Teste 10: Atirador realmente para durante a mira
+    state.leftOffensive = true; state.rightOffensive = false;
+    spawnUnit('left', 100, 120, TYPES.find(t=>t.id==='mosqueteiro'));
+    spawnUnit('right', 420, 120, TYPES.find(t=>t.id==='scutum'));
+    thinkTargets(0.016);
+    shooter = state.units[0]; tgt = state.units[1]; entered=false;
+    for(let i=0;i<200 && !entered;i++){ physics(0.05); const d=Math.hypot(tgt.x-shooter.x,tgt.y-shooter.y); if(d <= shooter.range){ entered=true; shooter.cooldown=0; break; } }
+    // agora deve estar mirando; garantir que a velocidade ficou quase zero
+    physics(0.05);
+    const speedNow = Math.hypot(shooter.vx, shooter.vy);
+    console.assert(speedNow < 2, 'Atirador deve ficar praticamente parado enquanto mira');
+    state.units.length = 0;
+
+    // Teste 11: Delay de mira não soma no cooldown
+    state.leftOffensive = true; state.rightOffensive = false;
+    spawnUnit('left', 100, 120, TYPES.find(t=>t.id==='mosqueteiro'));
+    spawnUnit('right', 420, 120, TYPES.find(t=>t.id==='scutum'));
+    thinkTargets(0.016);
+    shooter = state.units[0]; tgt = state.units[1];
+    // aproximar e iniciar mira
+    entered=false;
+    for(let i=0;i<200 && !entered;i++){ physics(0.05); const d=Math.hypot(tgt.x-shooter.x,tgt.y-shooter.y); if(d <= shooter.range){ entered=true; shooter.cooldown=0; break; } }
+    // esperar ~1.5s até disparar
+    let shot=false; let hpBefore=tgt.hp; const atkEvery = shooter.atkEvery;
+    for(let t=0;t<2.0 && !shot;t+=0.01){ combat(0.01); if(tgt.hp < hpBefore){ shot=true; break; } }
+    console.assert(Math.abs(shooter.cooldown - atkEvery) < 0.001, 'Cooldown deve ser igual a atkEvery após o tiro (sem somar o delay de mira)');
+    state.units.length = 0;
+
+    // Teste 12: Canhoneiro anda ~metade da velocidade do mosqueteiro
+    state.leftOffensive = true; state.rightOffensive = false;
+    spawnUnit('left', 100, 100, TYPES.find(t=>t.id==='canhoneiro'));
+    spawnUnit('right', 900, 100, TYPES.find(t=>t.id==='scutum'));
+    spawnUnit('left', 100, 200, TYPES.find(t=>t.id==='mosqueteiro'));
+    spawnUnit('right', 900, 200, TYPES.find(t=>t.id==='scutum'));
+    thinkTargets(0.016);
+    let ch = state.units.find(u=>u.typeRef.id==='canhoneiro');
+    let ms = state.units.find(u=>u.typeRef.id==='mosqueteiro');
+    const x0ch = ch.x, x0ms = ms.x;
+    for(let i=0;i<20;i++){ physics(0.05); }
+    const vch = Math.abs(ch.x - x0ch);
+    const vms = Math.abs(ms.x - x0ms);
+    const ratio = vch / Math.max(1e-6, vms);
+    console.assert(ratio > 0.4 && ratio < 0.6, 'Canhoneiro deve andar ~0.5x a velocidade do mosqueteiro');
+    state.units.length = 0;
+
+    // Teste 13: Elefante não é empurrado para trás por múltiplas unidades
+    state.leftOffensive = false; state.rightOffensive = true; // elefante parado, inimigos avançando
+    spawnUnit('left', 400, 140, TYPES.find(t=>t.id==='elefante'));
+    spawnUnit('right', 430, 120, TYPES.find(t=>t.id==='guerreiro'));
+    spawnUnit('right', 430, 140, TYPES.find(t=>t.id==='guerreiro'));
+    spawnUnit('right', 430, 160, TYPES.find(t=>t.id==='guerreiro'));
+    thinkTargets(0.016);
+    let ele = state.units.find(u=>u.typeRef.id==='elefante');
+    const x0 = ele.x;
+    for(let i=0;i<80;i++){ physics(0.05); }
+    console.assert(ele.x >= x0 - 2, 'Elefante não deve ser empurrado para trás significativamente');
+    state.units.length = 0;
+
+    // Teste 14: Elefante ataca até 2 inimigos simultaneamente no alcance melee
+    state.leftOffensive = true; state.rightOffensive = false;
+    spawnUnit('left', 300, 200, TYPES.find(t=>t.id==='elefante'));
+    spawnUnit('right', 300 + 2*BASE_SIZE, 200 - 8, TYPES.find(t=>t.id==='scutum'));
+    spawnUnit('right', 300 + 2*BASE_SIZE, 200 + 8, TYPES.find(t=>t.id==='scutum'));
+    thinkTargets(0.016);
+    let E = state.units.find(u=>u.typeRef.id==='elefante');
+    // Garantir alcance corpo-a-corpo e atacar
+    E.cooldown = 0; physics(0.016); combat(0.016);
+    const twoDown = state.units.filter(u=>u.typeRef.id==='scutum' && u.dead).length;
+    console.assert(twoDown >= 2, 'Elefante deve atingir (e provavelmente eliminar) dois alvos no melee');
+    state.units.length = 0;
+
   }catch(err){
     console.error('Erro nos testes:', err);
   } finally {
     console.groupEnd();
     // restaurar estado
     state.started = save.started; state.units = save.units; state.projectiles = save.projectiles;
+    state.leftOffensive = save.leftOffensive; state.rightOffensive = save.rightOffensive;
   }
 }
 
